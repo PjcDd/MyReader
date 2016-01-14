@@ -1,12 +1,9 @@
 package main;
 
 import java.awt.BorderLayout;
-import java.awt.TextArea;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.BufferedReader;
@@ -22,10 +19,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import shelf.ShelfBook;
+import uistyle.UIStyle;
 
 
 public class ReaderFrame extends JFrame {
@@ -59,7 +56,8 @@ public class ReaderFrame extends JFrame {
 	private JButton backToShelfBtn = null;
 	private JButton settingBtn = null;
 	private JLabel percentageLabel = null;
-	
+	private JButton fontBiggerBtn = null;
+	private JButton fontSmallerBtn = null;
 	
 	/**
 	 * 阅读进度
@@ -67,7 +65,14 @@ public class ReaderFrame extends JFrame {
 	private StringBuffer readingBuffer = new StringBuffer();
 	private BufferedReader reader;
 	
+	/**
+	 * 书架上的书本清单
+	 */
 	private ArrayList<ShelfBook> bookList = new ArrayList<ShelfBook>();
+	
+	/**
+	 * 构造
+	 */
 	public ReaderFrame() {
 		if (readConfiguration()){
 			initComponent();
@@ -98,16 +103,19 @@ public class ReaderFrame extends JFrame {
 		this.shelfPane = new JPanel();
 		this.readingArea = new JTextArea();
 		this.readingArea.setLineWrap(true);
+		this.readingArea.setEditable(false);
 		this.readingPane = new JScrollPane(readingArea, 
 				JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, 
 				JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 		
 		// 控件
-		this.openBtn = new JButton("open");
-		this.backToShelfBtn = new JButton("back");
-		this.settingBtn = new JButton("setting");
+		this.openBtn = new JButton("添加");
+		this.backToShelfBtn = new JButton("返回书架");
+		this.settingBtn = new JButton("设置");
 		this.timeLabel = new JLabel("00:00:00");
 		this.percentageLabel = new JLabel("0%");
+		this.fontBiggerBtn = new JButton("字体 +");
+		this.fontSmallerBtn = new JButton("字体 -");
 		
 	}
 	/**
@@ -120,7 +128,6 @@ public class ReaderFrame extends JFrame {
 	 * 设置书架布局
 	 */
 	private void setShelfLayout(){
-		this.setVisible(false);
 		
 		this.add(topPane, BorderLayout.NORTH);
 		this.add(bottomPane, BorderLayout.SOUTH);
@@ -135,11 +142,11 @@ public class ReaderFrame extends JFrame {
 		if (!bookList.isEmpty()){
 			Iterator<ShelfBook> it = bookList.iterator();
 			while(it.hasNext()){
-				shelfPane.add(new JButton(it.next().getFilePath()));
+				shelfPane.add(it.next().getButton());
 			}
 		}
 
-		this.setVisible(true);
+		refreshUIStyle();
 	}
 	/**
 	 * 移除书架界面
@@ -156,7 +163,6 @@ public class ReaderFrame extends JFrame {
 	 * 设置阅读布局
 	 */
 	private void setReadingLayout(){
-		this.setVisible(false);
 		
 		this.add(topPane, BorderLayout.NORTH);
 		this.add(bottomPane, BorderLayout.SOUTH);
@@ -164,12 +170,17 @@ public class ReaderFrame extends JFrame {
 		
 		this.topPane.add(backToShelfBtn);
 		this.topPane.add(settingBtn);
+		this.topPane.add(fontBiggerBtn);
+		this.topPane.add(fontSmallerBtn);
 		
 		this.bottomPane.add(percentageLabel);
 		this.bottomPane.add(timeLabel);
 
-		this.setVisible(true);
+		refreshUIStyle();
 	}
+	/**
+	 * 移除阅读界面
+	 */
 	private void removeReadingLayout(){
 		this.remove(topPane);
 		this.remove(bottomPane);
@@ -187,6 +198,7 @@ public class ReaderFrame extends JFrame {
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
+
 				JFileChooser fileChoose = new JFileChooser();
 				fileChoose.setFileFilter(new FileNameExtensionFilter("txt文件", "txt"));
 				fileChoose.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
@@ -194,16 +206,18 @@ public class ReaderFrame extends JFrame {
 				File f = fileChoose.getSelectedFile();
 
 				// to be added -- judge the file type
-				
-				removeShelfLayout();
-				setReadingLayout();
-
-				ShelfBook book = new ShelfBook(f.getPath());
-				addBookToShelf(book);
-				startReading(book);
+				if (f != null){
+					removeShelfLayout();
+					setReadingLayout();
+	
+					ShelfBook book = new ShelfBook(f.getPath());
+					addBookToShelf(book);
+					startReading(book);
+				}
 			}
 		});
 		
+	
 		this.backToShelfBtn.addActionListener(new ActionListener() {
 			
 			@Override
@@ -243,55 +257,100 @@ public class ReaderFrame extends JFrame {
 			}
 		});
 		
-		this.addKeyListener(new KeyListener() {
-					
-					@Override
-					public void keyTyped(KeyEvent e) {
-					}
-					
-					@Override
-					public void keyReleased(KeyEvent e) {
-					}
-					
-					@Override
-					public void keyPressed(KeyEvent e) {
-						if (e.getKeyCode() == KeyEvent.VK_RIGHT){
-
-							try{
-								readingBuffer.append(reader.readLine() + "\n");
-								readingArea.setText(readingBuffer.toString());
-							}catch (Exception ee){ee.printStackTrace();}
-							System.out.println("nextPage");
-						}
-					}
-				});
+		this.settingBtn.addActionListener(new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				readingPane.getParent().setFocusable(true);
+			}
+		});
 		
+		this.fontBiggerBtn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				Font f = new Font(readingArea.getFont().getName(), 
+						readingArea.getFont().getStyle(),
+						readingArea.getFont().getSize()+1);
+				System.out.println("font size now:"+f.getSize());
+				readingArea.setFont(f);
+			}
+		});
 		
-		
-
+		this.fontSmallerBtn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (readingArea.getFont().getSize() > 1){
+					Font f = new Font(readingArea.getFont().getName(), 
+							readingArea.getFont().getStyle(),
+							readingArea.getFont().getSize()-1);
+					System.out.println("font size now:"+f.getSize());
+					readingArea.setFont(f);
+				}
+			}
+		});
 	}
 	/**
 	 * 将选择的书添加到书架
 	 * @param f
 	 */
 	private void addBookToShelf(ShelfBook book){
+		boolean found = false;
 		if (!bookList.isEmpty()){
 			Iterator<ShelfBook> it = bookList.iterator();
-			boolean found = false;
 			while(it.hasNext()){
 				if (it.next().isSameBook(book)){
 					found = true;
 					System.out.println("本书已经在书架上！");
 				}
 			}
-			if (!found){
-				bookList.add(book);
-				System.out.println("已经添加--"+book.getFilePath());
-			}
-		}else{
+		}
+		if (!found){
 			bookList.add(book);
+			addBookBtnListener(book);
 			System.out.println("已经添加--"+book.getFilePath());
 		}
+	}
+	/**
+	 * 设置书本按钮的监听器
+	 * @param button
+	 */
+	private void addBookBtnListener(ShelfBook book){
+		book.getButton().addMouseListener(new MouseListener() {
+			
+			@Override
+			public void mouseReleased(MouseEvent e) {
+			}
+			@Override
+			public void mousePressed(MouseEvent e) {
+				if (e.getButton() == MouseEvent.BUTTON1){
+					removeShelfLayout();
+					setReadingLayout();
+					startReading(book);
+				}else if (e.getButton() == MouseEvent.BUTTON3){
+					// to be added - right button to delete the book
+					bookList.remove(book);
+					removeShelfLayout();
+					setShelfLayout();
+				}
+			}
+			@Override
+			public void mouseExited(MouseEvent e) {
+			}
+			@Override
+			public void mouseEntered(MouseEvent e) {
+			}
+			@Override
+			public void mouseClicked(MouseEvent e) {
+			}
+		});
+		book.getButton().addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				removeShelfLayout();
+				setReadingLayout();
+				startReading(book);
+			}
+		});
 	}
 	/**
 	 * 开始读书
@@ -308,19 +367,18 @@ public class ReaderFrame extends JFrame {
 		}
 	}
 	/**
+	 * 刷新UI样式
+	 */
+	private void refreshUIStyle(){
+		UIStyle.setUIStyle(this, UIStyle.STYLE_MCWIN);
+	}
+	/**
 	 * 显示界面
 	 */
 	private void showFrame(){
-		try{
-			String lookAndFeel = "com.sun.java.swing.plaf.windows.WindowsLookAndFeel"; 
-			UIManager.setLookAndFeel(lookAndFeel); 
-		}catch (Exception e){
-			e.printStackTrace();
-		}
-
 		int height = (int)(this.getToolkit().getScreenSize().getHeight());
 		int width = (int)(this.getToolkit().getScreenSize().getWidth());
-		int sizeW = 400,sizeH = 300;
+		int sizeW = 800,sizeH = 400;
 		this.setSize(sizeW, sizeH);
 		this.setLocation((width - sizeW)/2, (height - sizeH)/2);
 		this.setFocusable(true);
@@ -328,6 +386,10 @@ public class ReaderFrame extends JFrame {
 		this.setVisible(true);
 	}
 	
+	/**
+	 * 程序入口
+	 * @param args
+	 */
 	public static void main(String[] args) {
 		new ReaderFrame();
 	}
