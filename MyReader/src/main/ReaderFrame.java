@@ -1,7 +1,10 @@
 package main;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
@@ -9,7 +12,9 @@ import java.awt.event.MouseListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Iterator;
 
 import javax.swing.JButton;
@@ -25,7 +30,7 @@ import shelf.ShelfBook;
 import uistyle.UIStyle;
 
 
-public class ReaderFrame extends JFrame {
+public class ReaderFrame extends JFrame implements Runnable{
 	/**
 	 * 
 	 */
@@ -40,6 +45,7 @@ public class ReaderFrame extends JFrame {
 	/**
 	 * 书架界面
 	 */
+	private JScrollPane scrollShelf = null;
 	private JPanel shelfPane = null;
 	
 	/**
@@ -64,7 +70,7 @@ public class ReaderFrame extends JFrame {
 	 */
 	private StringBuffer readingBuffer = new StringBuffer();
 	private BufferedReader reader;
-	
+	private ShelfBook currentBook = null;
 	/**
 	 * 书架上的书本清单
 	 */
@@ -79,11 +85,59 @@ public class ReaderFrame extends JFrame {
 			addComponent();
 			addListener();
 			showFrame();
+			Thread thread = new Thread(this, "RefreshTime");
+			thread.start();
+			
+			ShelfBook book = new ShelfBook("D:\\Backup\\我的文档\\《沉思录》马可.奥勒留.txt");
+			addBookToShelf(book);
+			book = new ShelfBook("D:\\Backup\\我的文档\\05.丑陋的中国人.txt");
+			addBookToShelf(book);
+			book = new ShelfBook("D:\\Backup\\我的文档\\10.厚黑学.txt");
+			addBookToShelf(book);
+			book = new ShelfBook("D:\\Backup\\我的文档\\11.面对面丛书(精选版).txt");
+			addBookToShelf(book);
+			book = new ShelfBook("D:\\Backup\\我的文档\\12.麦田里的守望者.txt");
+			addBookToShelf(book);
+			
+			
+			
+			setShelfLayout();
 		}else{
 			System.out.println("读取软件配置失败！");
 		}
 	}
 
+	/**
+	 * 线程
+	 */
+	@Override
+	public void run() {
+		// TODO Auto-generated method stub
+		while(true){
+			refreshClockTime();
+			refreshPercentage();
+			try{
+				Thread.sleep(1000);
+			}catch (Exception e){
+				System.out.println("线程Sleep出错！");
+				e.printStackTrace();
+			}
+		}
+	}
+	/**
+	 * 更新当前时间
+	 */
+	private void refreshClockTime(){
+		SimpleDateFormat dtStyle = new SimpleDateFormat("HH:mm:ss");
+		timeLabel.setText(dtStyle.format(Calendar.getInstance().getTime()));
+	}
+	private void refreshPercentage(){
+		if (currentBook != null){
+			this.percentageLabel.setText(
+					String.format("%.2f", currentBook.getCurrentPercentage())
+					+"%");
+		}
+	}
 	/**
 	 * 读取配置文件，配置文件不存在时，创建配置文件
 	 * @return 读取成功或创建成功返回TRUE
@@ -101,11 +155,14 @@ public class ReaderFrame extends JFrame {
 		
 		// 中心界面
 		this.shelfPane = new JPanel();
+		this.scrollShelf = new JScrollPane(shelfPane, 
+				JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, 
+				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		this.readingArea = new JTextArea();
 		this.readingArea.setLineWrap(true);
 		this.readingArea.setEditable(false);
 		this.readingPane = new JScrollPane(readingArea, 
-				JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, 
+				JScrollPane.VERTICAL_SCROLLBAR_NEVER, 
 				JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 		
 		// 控件
@@ -131,7 +188,9 @@ public class ReaderFrame extends JFrame {
 		
 		this.add(topPane, BorderLayout.NORTH);
 		this.add(bottomPane, BorderLayout.SOUTH);
-		this.add(shelfPane, BorderLayout.CENTER);
+		this.add(scrollShelf, BorderLayout.CENTER);
+		
+		this.scrollShelf.setViewportView(shelfPane);
 		
 		this.topPane.add(openBtn);
 		
@@ -139,12 +198,24 @@ public class ReaderFrame extends JFrame {
 				
 		// to be added -- add shelf books
 		//this.shelfPane.removeAll();
-		if (!bookList.isEmpty()){
+		if (!bookList.isEmpty()){			
 			Iterator<ShelfBook> it = bookList.iterator();
 			while(it.hasNext()){
 				shelfPane.add(it.next().getButton());
 			}
 		}
+
+		
+		System.out.println(
+				"w="+scrollShelf.getVisibleRect().getWidth()
+				+";h="+scrollShelf.getVisibleRect().getHeight()
+				+";\nshelfw="+shelfPane.getVisibleRect().getWidth()
+				+";shelfh="+shelfPane.getVisibleRect().getHeight()
+				+";\nshelfBoundw="+shelfPane.getBounds().getWidth()
+				+";shelfh="+shelfPane.getBounds().getHeight());
+		shelfPane.setPreferredSize(new Dimension(
+				(int)(shelfPane.getVisibleRect().getWidth() - 20), 
+				(int)(shelfPane.getVisibleRect().getHeight())));
 
 		refreshUIStyle();
 	}
@@ -154,7 +225,7 @@ public class ReaderFrame extends JFrame {
 	private void removeShelfLayout(){
 		this.remove(topPane);
 		this.remove(bottomPane);
-		this.remove(shelfPane);
+		this.remove(scrollShelf);
 		this.topPane.removeAll();
 		this.bottomPane.removeAll();
 		this.shelfPane.removeAll();
@@ -182,11 +253,14 @@ public class ReaderFrame extends JFrame {
 	 * 移除阅读界面
 	 */
 	private void removeReadingLayout(){
+		removeCurrentBook();
+		
 		this.remove(topPane);
 		this.remove(bottomPane);
 		this.remove(readingPane);
 		this.topPane.removeAll();
 		this.bottomPane.removeAll();
+		this.readingArea.setText("");
 	}
 	/**
 	 * 添加监听器
@@ -343,14 +417,6 @@ public class ReaderFrame extends JFrame {
 			public void mouseClicked(MouseEvent e) {
 			}
 		});
-		book.getButton().addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				removeShelfLayout();
-				setReadingLayout();
-				startReading(book);
-			}
-		});
 	}
 	/**
 	 * 开始读书
@@ -360,11 +426,29 @@ public class ReaderFrame extends JFrame {
 		try{
 			readingBuffer.setLength(0);
 			reader = new BufferedReader(new FileReader(book.getFilePath()));
-			readingBuffer.append(reader.readLine() + "\n");
+			int lineCount = 0;
+			while(reader.readLine()!=null){
+				lineCount++;
+			}
+			book.setLineCount(lineCount);
+			setCurrentBook(book);
 			readingArea.setText(readingBuffer.toString());
 		}catch (Exception e){
 			e.printStackTrace();
 		}
+	}
+	/**
+	 * 设置当前读的书
+	 * @param book
+	 */
+	private void setCurrentBook(ShelfBook book){
+		this.currentBook = book;
+	}
+	/**
+	 * 清除当前正在读的书
+	 */
+	private void removeCurrentBook(){
+		this.currentBook = null;
 	}
 	/**
 	 * 刷新UI样式
