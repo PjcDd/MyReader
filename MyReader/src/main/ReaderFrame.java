@@ -1,10 +1,14 @@
 package main;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
@@ -17,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Iterator;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -24,6 +29,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.border.Border;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import shelf.ShelfBook;
@@ -88,8 +94,9 @@ public class ReaderFrame extends JFrame implements Runnable{
 			Thread thread = new Thread(this, "RefreshTime");
 			thread.start();
 			
-			ShelfBook book = new ShelfBook("D:\\Backup\\我的文档\\《沉思录》马可.奥勒留.txt");
+			ShelfBook book = new ShelfBook("D:\\彭小迪\\测试.txt");
 			addBookToShelf(book);
+			/*
 			book = new ShelfBook("D:\\Backup\\我的文档\\05.丑陋的中国人.txt");
 			addBookToShelf(book);
 			book = new ShelfBook("D:\\Backup\\我的文档\\10.厚黑学.txt");
@@ -99,7 +106,7 @@ public class ReaderFrame extends JFrame implements Runnable{
 			book = new ShelfBook("D:\\Backup\\我的文档\\12.麦田里的守望者.txt");
 			addBookToShelf(book);
 			
-			
+			*/
 			
 			setShelfLayout();
 		}else{
@@ -133,9 +140,11 @@ public class ReaderFrame extends JFrame implements Runnable{
 	}
 	private void refreshPercentage(){
 		if (currentBook != null){
-			this.percentageLabel.setText(
+			/*this.percentageLabel.setText(
 					String.format("%.2f", currentBook.getCurrentPercentage())
-					+"%");
+					+"%");*/
+			double pct = 100*readingPane.getViewport().getViewPosition().getY()/readingArea.getSize().getHeight();
+			this.percentageLabel.setText(String.format("%.2f", pct));
 		}
 	}
 	/**
@@ -204,7 +213,7 @@ public class ReaderFrame extends JFrame implements Runnable{
 				shelfPane.add(it.next().getButton());
 			}
 		}
-
+/*
 		
 		System.out.println(
 				"w="+scrollShelf.getVisibleRect().getWidth()
@@ -216,7 +225,7 @@ public class ReaderFrame extends JFrame implements Runnable{
 		shelfPane.setPreferredSize(new Dimension(
 				(int)(shelfPane.getVisibleRect().getWidth() - 20), 
 				(int)(shelfPane.getVisibleRect().getHeight())));
-
+*/
 		refreshUIStyle();
 	}
 	/**
@@ -335,7 +344,20 @@ public class ReaderFrame extends JFrame implements Runnable{
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				readingPane.getParent().setFocusable(true);
+
+				int fontSize = readingArea.getFont().getSize();
+				System.out.println(readingArea.getVisibleRect().toString());
+				System.out.println(readingPane.getVisibleRect().toString());
+				int w = (int)(readingArea.getVisibleRect().getWidth());
+				int h = (int)(readingPane.getVisibleRect().getHeight());
+				System.out.println(fontSize*((int)(h/fontSize)));
+				System.out.println(fontSize);
+				
+				//readingPane.setSize(new Dimension(w, 18*((int)(h/18))+4 ));
+				readingPane.setBorder(BorderFactory.createEmptyBorder(h-(18*((int)(h/18))+4), 0, 1, 0));
+				readingPane.getViewport().setViewPosition(new Point(0, 0));
+				
+				System.out.println(readingArea.getSize().toString());
 			}
 		});
 		
@@ -432,6 +454,16 @@ public class ReaderFrame extends JFrame implements Runnable{
 			}
 			book.setLineCount(lineCount);
 			setCurrentBook(book);
+			System.out.println("bookname:"+book.getFileName()
+					+"\nbookLineCount:"+book.getLineCount()
+					+"\nbookCurrentLine:"+book.getCurrentLine());
+			int i = 0;
+			reader = new BufferedReader(new FileReader(book.getFilePath()));
+			while(i<book.getLineCount()){
+				readingBuffer.append(reader.readLine()+"\n");
+				i++;
+			}
+			
 			readingArea.setText(readingBuffer.toString());
 		}catch (Exception e){
 			e.printStackTrace();
